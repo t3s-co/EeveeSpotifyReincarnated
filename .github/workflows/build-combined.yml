@@ -4,10 +4,12 @@ on:
   workflow_dispatch:
     inputs:
       branch:
-        description: "Branch to build from"
+        description: "Branch to build from (must be 'Master')"
         default: "Master"
         required: true
-        type: string
+        type: choice
+        options:
+          - Master
       spoti.pw_branch:
         description: "spoti.pw branch to build from"
         default: "master"
@@ -38,11 +40,12 @@ jobs:
     runs-on: macos-latest
     timeout-minutes: 60
     steps:
-      # ─── Checkout EeveeSpotify (main repo) ────────────────────────────────
-      - name: Checkout EeveeSpotify
+      # ─── Checkout EeveeSpotify (main repo) — MUST use 'Master' (capital M) ───
+      # macOS runners are case-insensitive; remote has both 'Master' and 'master'
+      - name: Checkout EeveeSpotify (Master branch)
         uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.branch }}
+          ref: Master
           fetch-depth: 0
           submodules: recursive
 
