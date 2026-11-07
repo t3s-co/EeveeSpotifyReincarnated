@@ -33,21 +33,24 @@ on:
 env:
   THEOS: ${{ github.workspace }}/theos
   SWIFTPROTOBUF_VERSION: "1.29.0"
-  SPOTIPW_REPO: "spoti.pw"  # spoti.pw repo name (skopevoj/spoti.pw)
+  SPOTIPW_REPO: "spoti.pw"
 
 jobs:
   build:
     runs-on: macos-latest
     timeout-minutes: 60
     steps:
-      # ─── Checkout EeveeSpotify (main repo) — MUST use 'Master' (capital M) ───
-      # macOS runners are case-insensitive; remote has both 'Master' and 'master'
-      - name: Checkout EeveeSpotify (Master branch)
+      # ─── Checkout EeveeSpotify (Master branch only) ──────────────────────
+      # Use sparse fetch to avoid case-insensitive filesystem issues with both
+      # 'Master' and 'master' branches existing on the remote.
+      - name: Checkout EeveeSpotify (Master branch only)
         uses: actions/checkout@v4
         with:
+          repository: t3s-co/EeveeSpotifyReincarnated
           ref: Master
-          fetch-depth: 0
+          fetch-depth: 1
           submodules: recursive
+          sparse-checkout: |
 
       # ─── Checkout spoti.pw as subdirectory ────────────────────────────────
       - name: Checkout spoti.pw
