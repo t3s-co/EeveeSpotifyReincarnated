@@ -344,9 +344,6 @@ class DSAMainViewKill: ClassHook<NSObject> {
 // video ads (interrupting video ad that rewards the user). Killing the
 // fetch controller and launcher services prevents the ad from loading.
 
-private let killRewardedAdFetchController = true
-private let killInterruptingVideoAdLauncher = true
-
 class RewardedAdFetchControllerServiceKill: ClassHook<NSObject> {
     typealias Group = RewardedAdFetchControllerServiceGroup
     static let targetName =
@@ -372,8 +369,6 @@ class InterruptingVideoAdLauncherImplKill: ClassHook<NSObject> {
 // MARK: - 9.1.90+ Survey Ad Service Kills
 // New in 9.1.90: Survey ad infrastructure (AdTopicSurvey, etc.)
 // These appear to be user research/survey ads. Kill the logger service.
-
-private let killSurveyAdLogger = true
 
 class SurveyAdLoggerServiceKill: ClassHook<NSObject> {
     typealias Group = SurveyAdLoggerServiceGroup
