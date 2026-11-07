@@ -25,13 +25,19 @@ struct SponsoredCtxAttachmentGroup: HookGroup {}
 struct ScrollFeedAdViewGroup: HookGroup {}
 struct ScrollFeedAdServiceGroup: HookGroup {}
 struct ScrollFeedAdControllerGroup: HookGroup {}
-struct CoreURLSessionAdsGroup: HookGroup {}
+struct RewardedAdFetchControllerServiceGroup: HookGroup {}
+struct InterruptingVideoAdLauncherGroup: HookGroup {}
+struct SurveyAdLoggerServiceGroup: HookGroup {}
+struct AdTopicSurveyViewGroup: HookGroup {}
 
 private let killAdsServiceImpl         = true
 private let killInStreamAdsService     = true
 private let killEmbeddedNPVService     = true
 private let killNativeAdsLoggerService = true
 private let killSponsoredCtxAttachment = true
+private let killRewardedAdFetchController = true
+private let killInterruptingVideoAdLauncher = true
+private let killSurveyAdLogger = true
 private let logAdBlockerEvents         = true
 
 @inline(__always)
@@ -333,36 +339,68 @@ class DSAMainViewKill: ClassHook<NSObject> {
     }
 }
 
-// In-stream audio ads (#198, #212). The player core does its HTTP through its
-// own URLSession delegate, SPTCoreURLSessionDataDelegate, not through
-// SPTDataLoaderService or HttpClientURLSession, so the /ads/ and /ad-logic/
-// blocks in SpotifyResponsePatcher never see the core's ad-break requests
-// (ads/v3/ads, ad-logic/prefetch, ad-logic/v3/config, ...). Cancelling at the
-// response makes the core treat the ad fetch as failed and skip the break.
-// Matched narrowly on purpose: everything else the core fetches stays intact.
-private func isCoreAdRequest(_ url: URL) -> Bool {
-    let host = (url.host ?? "").lowercased()
-    guard host.contains("spotify") || host.contains("spclient") else { return false }
-    let path = url.path.lowercased()
-    return path.contains("/ads/") || path.hasSuffix("/ads") || path.contains("/ad-logic/")
+// MARK: - 9.1.90+ Rewarded/Interrupting Video Ad Service Kills
+// New in 9.1.90: AdsStandalone_RewardedAdImpl module handles rewarded
+// video ads (interrupting video ad that rewards the user). Killing the
+// fetch controller and launcher services prevents the ad from loading.
+
+private let killRewardedAdFetchController = true
+private let killInterruptingVideoAdLauncher = true
+
+class RewardedAdFetchControllerServiceKill: ClassHook<NSObject> {
+    typealias Group = RewardedAdFetchControllerServiceGroup
+    static let targetName =
+        "_TtC28AdsStandalone_RewardedAdImpl32RewardedAdFetchControllerService"
+
+    func load() {
+        if killRewardedAdFetchController { adlog("RewardedAdFetchControllerService.load"); return }
+        orig.load()
+    }
 }
 
-class CoreURLSessionAdsKill: ClassHook<NSObject> {
-    typealias Group = CoreURLSessionAdsGroup
-    static let targetName = "SPTCoreURLSessionDataDelegate"
+class InterruptingVideoAdLauncherImplKill: ClassHook<NSObject> {
+    typealias Group = InterruptingVideoAdLauncherGroup
+    static let targetName =
+        "_TtC28AdsStandalone_RewardedAdImpl31InterruptingVideoAdLauncherImpl"
 
-    func URLSession(
-        _ session: URLSession,
-        dataTask task: URLSessionDataTask,
-        didReceiveResponse response: URLResponse,
-        completionHandler handler: @escaping (URLSession.ResponseDisposition) -> Void
-    ) {
-        if let url = task.currentRequest?.url ?? task.originalRequest?.url, isCoreAdRequest(url) {
-            adlog("core request \(url.host ?? "?")\(url.path)")
-            handler(.cancel)
-            return
+    func load() {
+        if killInterruptingVideoAdLauncher { adlog("InterruptingVideoAdLauncherImpl.load"); return }
+        orig.load()
+    }
+}
+
+// MARK: - 9.1.90+ Survey Ad Service Kills
+// New in 9.1.90: Survey ad infrastructure (AdTopicSurvey, etc.)
+// These appear to be user research/survey ads. Kill the logger service.
+
+private let killSurveyAdLogger = true
+
+class SurveyAdLoggerServiceKill: ClassHook<NSObject> {
+    typealias Group = SurveyAdLoggerServiceGroup
+    static let targetName =
+        "_TtC22AdsPlatform_ElementKit23SurveyAdEventLoggerImpl"
+
+    func load() {
+        if killSurveyAdLogger { adlog("SurveyAdEventLoggerImpl.load"); return }
+        orig.load()
+    }
+}
+
+// AdTopicSurvey view hide fallback (renders survey UI in feed)
+class AdTopicSurveyElementUIKill: ClassHook<NSObject> {
+    typealias Group = AdTopicSurveyViewGroup
+    static let targetName =
+        "_TtC22AdsPlatform_ElementKit22AdTopicSurveyElementUI"
+
+    func didMoveToSuperview() {
+        orig.didMoveToSuperview()
+        guard let view = target as? UIView else { return }
+        view.isHidden = true
+        view.isUserInteractionEnabled = false
+        if view.superview != nil {
+            adlog("AdTopicSurveyElementUI (survey ad)")
+            view.removeFromSuperview()
         }
-        orig.URLSession(session, dataTask: task, didReceiveResponse: response, completionHandler: handler)
     }
 }
 
@@ -384,6 +422,9 @@ func activateEeveeAdBlockerExtended() {
         (PlaylistAdControllerV2Kill.targetName, "PlaylistAdControllerV2", { ScrollFeedAdControllerGroup().activate() }),
         (PlaylistAdControllerImplKill.targetName, "PlaylistAdControllerImpl", { ScrollFeedAdControllerGroup().activate() }),
         (LeavebehindAdElementProviderKill.targetName, "LeavebehindAdElementProvider", { ScrollFeedAdControllerGroup().activate() }),
+        (RewardedAdFetchControllerServiceKill.targetName, "RewardedAdFetchControllerService", { RewardedAdFetchControllerServiceGroup().activate() }),
+        (InterruptingVideoAdLauncherImplKill.targetName, "InterruptingVideoAdLauncherImpl", { InterruptingVideoAdLauncherGroup().activate() }),
+        (SurveyAdLoggerServiceKill.targetName, "SurveyAdEventLoggerImpl", { SurveyAdLoggerServiceGroup().activate() }),
     ]
 
     var activated = 0
@@ -469,14 +510,14 @@ func activateEeveeAdBlockerExtended() {
         ablog("DSAMainView unavailable; skipping")
     }
 
-    let responseSelector = Selector(("URLSession:dataTask:didReceiveResponse:completionHandler:"))
-    if let cls = findTweakClass(CoreURLSessionAdsKill.targetName),
-       class_getInstanceMethod(cls, responseSelector) != nil {
-        CoreURLSessionAdsGroup().activate()
+    // 9.1.90+ Rewarded/Interrupting Video Ad view fallback
+    if let cls = findTweakClass(AdTopicSurveyElementUIKill.targetName),
+       class_getInstanceMethod(cls, viewSelector) != nil {
+        AdTopicSurveyViewGroup().activate()
         activated += 1
-        ablog("SPTCoreURLSessionDataDelegate ad-request block activated")
+        ablog("AdTopicSurveyElementUI (survey ad view) activated")
     } else {
-        ablog("SPTCoreURLSessionDataDelegate unavailable; skipping")
+        ablog("AdTopicSurveyElementUI unavailable; skipping")
     }
 
     ablog("activated \(activated)/\(loadTargets.count + 8) compatible extended hooks")
