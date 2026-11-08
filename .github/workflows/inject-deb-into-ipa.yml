@@ -104,8 +104,6 @@ jobs:
           sudo curl -fsSL "https://github.com/asdfzxcvbn/ipapatch/releases/latest/download/ipapatch.${SUFFIX}" -o /usr/local/bin/ipapatch
           sudo chmod +x /usr/local/bin/ipapatch
           ipapatch --help >/dev/null
-          cd ${{ github.workspace }}/theos
-          make install_cyan
 
       - name: Build EeveeSwiftProtobuf.framework
         run: |
