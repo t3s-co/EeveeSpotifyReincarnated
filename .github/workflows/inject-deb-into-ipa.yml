@@ -96,7 +96,7 @@ jobs:
           path: ${{ github.workspace }}/theos
           submodules: recursive
 
-      - name: Install build tools & bootstrap theos
+      - name: Install build tools & cyan
         run: |
           brew install make dpkg ldid wget
           echo "$(brew --prefix make)/libexec/gnubin" >> $GITHUB_PATH
@@ -106,9 +106,6 @@ jobs:
           sudo curl -fsSL "https://github.com/asdfzxcvbn/ipapatch/releases/latest/download/ipapatch.${SUFFIX}" -o /usr/local/bin/ipapatch
           sudo chmod +x /usr/local/bin/ipapatch
           ipapatch --help >/dev/null
-          # Bootstrap theos (installs cyan, logos, etc. to $THEOS/bin)
-          cd ${{ github.workspace }}/theos
-          make bootstrap
 
       - name: Build EeveeSwiftProtobuf.framework
         run: |
