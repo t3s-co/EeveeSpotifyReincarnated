@@ -191,7 +191,7 @@ jobs:
           OUT_IPA="$OUT_DIR/Spotify-EeveeInjected-${EEVEE_VER}-${SPOT_VER}.ipa"
           INJECT=("$EEVEE_DYLIB" "$EEVEE_FW")
           [ -n "$EEVEE_BUNDLE" ] && INJECT+=("$EEVEE_BUNDLE")
-          cyan -i "$BASE_IPA" -o "$OUT_IPA" -f "${INJECT[@]}" -c 9 -m 15.0 -du
+          "${{ github.workspace }}/theos/bin/cyan" -i "$BASE_IPA" -o "$OUT_IPA" -f "${INJECT[@]}" -c 9 -m 15.0 -du
           echo "OUT_IPA=$OUT_IPA" >> $GITHUB_ENV
 
       - name: LC-inject zxPluginsInject
