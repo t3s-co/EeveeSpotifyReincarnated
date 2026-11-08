@@ -138,3 +138,36 @@ This tweak is created solely for **personal and educational purposes**. Use it a
    <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=SideloadLabs/EeveeSpotifyReincarnated&type=date&legend=top-left&sealed_token=C1hKWTv3UNdLAgsZjjCL7Rthp6YSGB4Mm9kIalnH1lgZXZnYVL09WbBt57E-FFzQXg8gZyFOW356S5XMTWmvQdIuEihF66WxqGuJTejmAdJx5XJHxC2l3A" />
  </picture>
 </a>
+
+## Session Summary
+
+### Completed
+- Created new GitHub Actions workflow `inject-deb-into-ipa.yml` for injecting EeveeSpotify `.deb` into pre-built IPA (e.g., spoti.pw modified IPA)
+- Fixed multiple YAML parsing issues:
+  - Unicode box-drawing characters (`───`) in comments breaking YAML parser
+  - Heredoc delimiter (`EOF` vs `ENDOFPFILE`) indentation issues
+  - Missing `cyan` tool — resolved by using `pyzule-rw` pip install which provides it
+- Generated base64-encoded secrets from uploaded certificate (.p12 + .mobileprovision)
+- Created setup documentation with GitHub Secrets configuration
+
+### Files Changed
+- `.github/workflows/inject-deb-into-ipa.yml` — Main workflow (final valid YAML)
+- `.github/workflows/INJECT_DEB_README.md` — Setup guide
+- GitHub Secrets: `SIGNING_CERT_P12_BASE64`, `PROVISIONING_PROFILE_BASE64`, `SIGNING_CERT_PASSWORD` (`flarestore`), `SIGNING_TEAM_ID` (`S9D4M9GLB4`)
+
+### Decisions
+- Workflow injects EeveeSpotify components (`EeveeSpotify.dylib`, `EeveeSwiftProtobuf.framework`, `EeveeSpotify.bundle`) into pre-built IPA using `cyan`
+- Re-signs with user's Apple Developer certificate via GitHub Secrets
+- Uses `ipapatch` for `zxPluginsInject.dylib` LC injection
+- `pyzule-rw` pip install provides `cyan` — no `make bootstrap` needed
+
+### Open Items
+- Git push from Windows has lock file issues — need to clean `.git/index.lock`, `.git/HEAD.lock`, `.git/rebase-merge` then pull/push
+- Workflow needs verification run after final push
+
+### Rule Updates
+- None (one-time workflow creation task)
+
+### CLAUDE.md Updates
+- None (not project-wide conventions)
+
